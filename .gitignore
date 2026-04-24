@@ -1,0 +1,23 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+tfplan.binary
+tfplan.json
+.terraform.lock.hcl
+
+# Credenciales y secretos
+*.pem
+*.key
+secrets/
+*.tfvars
+*.tfvars.json
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
