@@ -1,0 +1,106 @@
+name: Terraform CI - Análisis de Calidad y Seguridad
+
+on:
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+
+  #############################################
+  # ETAPA 1 - ANÁLISIS ESTÁTICO (TFLint)
+  #############################################
+  analisis-estatico:
+    name: "Etapa 1 - TFLint"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+
+      - name: Inicializar TFLint
+        run: tflint --init
+
+      - name: Ejecutar TFLint
+        run: tflint --format compact
+
+  #############################################
+  # ETAPA 2 - ANÁLISIS DE SEGURIDAD (Checkov)
+  #############################################
+  analisis-seguridad:
+    name: "Etapa 2 - Checkov"
+    runs-on: ubuntu-latest
+    needs: analisis-estatico  # Depende de Etapa 1
+
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+
+      - name: Ejecutar Checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: .
+          framework: terraform
+          soft_fail: false
+
+  #############################################
+  # ETAPA 3 - VALIDACIÓN TERRAFORM
+  #############################################
+  validacion-terraform:
+    name: "Etapa 3 - Terraform Validate"
+    runs-on: ubuntu-latest
+    needs: analisis-seguridad  # Depende de Etapa 2
+
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init -backend=false
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      #############################################
+      # OPA - Validación de Políticas
+      #############################################
+      - name: Instalar OPA
+        run: |
+          curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_linux_amd64_static
+          chmod +x opa
+          sudo mv opa /usr/local/bin/
+
+      - name: Generar plan Terraform en JSON para OPA
+        run: |
+          terraform init -backend=false
+          terraform plan -out=tfplan.binary
+          terraform show -json tfplan.binary > tfplan.json
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+
+      - name: Ejecutar políticas OPA
+        run: |
+          opa eval \
+            --data policies/ \
+            --input tfplan.json \
+            --format pretty \
+            "data.terraform.security.deny" | tee opa_result.txt
+
+          # Si hay mensajes de deny, fallar el pipeline
+          if grep -q '"msg"' opa_result.txt; then
+            echo "❌ OPA encontró violaciones de políticas:"
+            cat opa_result.txt
+            exit 1
+          else
+            echo "✅ OPA: todas las políticas pasaron correctamente"
+          fi
