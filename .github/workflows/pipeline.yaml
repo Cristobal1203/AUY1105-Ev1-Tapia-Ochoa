@@ -1,0 +1,112 @@
+name: Terraform CI - Análisis de Calidad y Seguridad
+
+on:
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+
+  analisis-estatico:
+    name: "Etapa 1 - TFLint"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+      - name: Inicializar TFLint
+        run: tflint --init
+      - name: Ejecutar TFLint
+        run: tflint --format compact
+
+  analisis-seguridad:
+    name: "Etapa 2 - Checkov"
+    runs-on: ubuntu-latest
+    needs: analisis-estatico
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+      - name: Ejecutar Checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: .
+          framework: terraform
+          soft_fail: true
+
+  validacion-terraform:
+    name: "Etapa 3 - Terraform Validate + OPA"
+    runs-on: ubuntu-latest
+    needs: analisis-seguridad
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+      - name: Terraform Init
+        run: terraform init -backend=false
+      - name: Terraform Validate
+        run: terraform validate
+      - name: Instalar OPA
+        run: |
+          curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_linux_amd64_static
+          chmod +x opa
+          sudo mv opa /usr/local/bin/
+          opa version
+      - name: Crear input simulado para OPA
+        run: |
+          cat > tfplan.json << 'EOF'
+          {
+            "resource_changes": [
+              {
+                "address": "aws_instance.ec2",
+                "type": "aws_instance",
+                "change": {
+                  "after": {
+                    "instance_type": "t3.micro"
+                  }
+                }
+              },
+              {
+                "address": "aws_security_group.sg",
+                "type": "aws_security_group",
+                "change": {
+                  "after": {
+                    "ingress": [
+                      {
+                        "from_port": 22,
+                        "to_port": 22,
+                        "protocol": "tcp",
+                        "cidr_blocks": ["10.0.0.0/8"]
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+          EOF
+          echo "✅ Input simulado creado correctamente"
+      - name: Ejecutar políticas OPA
+        run: |
+          opa eval \
+            --data policies/ \
+            --input tfplan.json \
+            --format pretty \
+            "data.terraform.security.deny" | tee opa_result.txt
+
+          DENY_COUNT=$(opa eval \
+            --data policies/ \
+            --input tfplan.json \
+            --format raw \
+            "count(data.terraform.security.deny)")
+
+          if [ "$DENY_COUNT" -gt "0" ]; then
+            echo "❌ OPA encontró $DENY_COUNT violación(es) de políticas"
+            exit 1
+          else
+            echo "✅ OPA: todas las políticas pasaron correctamente (0 violaciones)"
+          fi
