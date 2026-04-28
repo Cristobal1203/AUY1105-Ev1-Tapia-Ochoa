@@ -1,6 +1,8 @@
 package terraform.security
 
-deny[msg] {
+import rego.v1
+
+deny contains msg if {
   resource := input.resource_changes[_]
   resource.type == "aws_security_group"
   ingress := resource.change.after.ingress[_]
@@ -9,7 +11,7 @@ deny[msg] {
   cidr := ingress.cidr_blocks[_]
   cidr == "0.0.0.0/0"
   msg := sprintf(
-    "❌ Security Group '%s' permite SSH público (0.0.0.0/0). No está permitido.",
+    "Security Group '%s' permite SSH publico (0.0.0.0/0). No esta permitido.",
     [resource.address]
   )
 }
