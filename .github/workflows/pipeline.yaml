@@ -1,4 +1,4 @@
-name: Terraform CI - Análisis de Calidad y Seguridad
+name: Terraform CI - Análisis de Calidad y Seguridad (EP2)
 
 on:
   pull_request:
@@ -46,7 +46,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
-      - name: Terraform Init
+      - name: Terraform Init (sin backend)
         run: terraform init -backend=false
       - name: Terraform Validate
         run: terraform validate
@@ -62,7 +62,7 @@ jobs:
           {
             "resource_changes": [
               {
-                "address": "aws_instance.ec2",
+                "address": "module.ec2.aws_instance.ec2",
                 "type": "aws_instance",
                 "change": {
                   "after": {
@@ -71,7 +71,7 @@ jobs:
                 }
               },
               {
-                "address": "aws_security_group.sg",
+                "address": "module.vpc.aws_security_group.main",
                 "type": "aws_security_group",
                 "change": {
                   "after": {
