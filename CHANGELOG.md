@@ -1,54 +1,34 @@
 # CHANGELOG
 
-Todos los cambios relevantes de este proyecto están documentados en este archivo.
-El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
+El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/) y [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.3.0] - 2024 — PR #4: Definición de políticas OPA
+## [1.0.0] - 2024-06-02
 
-### Agregado
-- `policies/ec2.rego`: política OPA que restringe la creación de instancias EC2 al tipo `t3.micro`
-- `policies/ssh.rego`: política OPA que bloquea el acceso SSH público (`0.0.0.0/0`) al Security Group
-- Integración de OPA en el pipeline de GitHub Actions con evaluación sobre un input simulado del plan Terraform
-
----
-
-## [1.2.0] - 2024 — PR #3: Automatización GitHub Actions
-
-### Agregado
-- `.github/workflows/pipeline.yaml`: pipeline de GitHub Actions con 3 etapas secuenciales:
-  - Etapa 1: TFLint (análisis estático)
-  - Etapa 2: Checkov (análisis de seguridad)
-  - Etapa 3: Terraform Validate + OPA (validación del código y políticas)
-- Pipeline configurado para ejecutarse solo en Pull Requests hacia `main`
-- Jobs con dependencias (`needs`) para garantizar ejecución secuencial
-- OPA evalúa políticas con input simulado sin requerir credenciales AWS
+### Added
+- `README.md`: documentación completa del repositorio con EP2
+- `CHANGELOG.md`: registro de cambios actualizado
 
 ---
 
-## [1.1.0] - 2024 — PR #2: Código de infraestructura Terraform
+## [0.2.0] - 2024-06-02
 
-### Agregado
-- `main.tf`: código Terraform completo con:
-  - VPC (`10.1.0.0/16`) — `AUY1105-Tapia-Ochoa-vpc`
-  - Subred pública (`10.1.1.0/24`) — `AUY1105-Tapia-Ochoa-subnet`
-  - Security Group con SSH restringido a redes internas — `AUY1105-Tapia-Ochoa-sg`
-  - EC2 `t3.micro` Ubuntu 24.04 LTS con disco encriptado e IMDSv2 — `AUY1105-Tapia-Ochoa-ec2`
-  - KMS Key con rotación automática — `AUY1105-Tapia-Ochoa-kms`
-  - CloudWatch Log Group con cifrado — `AUY1105-Tapia-Ochoa-loggroup`
-  - VPC Flow Logs — `AUY1105-Tapia-Ochoa-flowlog`
-  - Roles IAM para EC2 y Flow Logs
-- AMI definido con `data source` dinámico de Canonical (owner `099720109477`) para Ubuntu 24.04 LTS
-- Nomenclatura de recursos en formato `AUY1105-Tapia-Ochoa-<tipo-recurso>`
+### Added
+- `policies/ec2.rego`: política OPA que restringe EC2 a tipo `t3.micro`
+- `policies/ssh.rego`: política OPA que bloquea SSH público (`0.0.0.0/0`)
+- `.github/workflows/pipeline.yaml`: pipeline con 3 etapas (TFLint, Checkov, Terraform Validate + OPA)
+- `examples/main.tf`: ejemplo funcional de uso de ambos módulos
+- `.gitignore`: exclusión de archivos de estado y credenciales
+- `main.tf`: orquestación de módulos locales VPC y EC2
+- `variables.tf`: variables de alto nivel para configurar ambos módulos
+- `outputs.tf`: outputs consolidados de ambos módulos
+- `versions.tf`: versiones requeridas con bloque provider centralizado
 
 ---
 
-## [1.0.0] - 2024 — PR #1: Repositorio de Código
+## [0.1.0] - 2024-06-02
 
-### Agregado
-- Repositorio inicializado con nombre `AUY1105-Ev1-Tapia-Ochoa`
-- `README.md`: descripción del proyecto, instrucciones de uso y definición de recursos Terraform
-- `.gitignore`: exclusión de `.terraform/`, `*.tfstate`, `*.tfstate.backup`, `*.pem`, `*.tfvars`, `secrets/`
-- `CHANGELOG.md`: registro de cambios del proyecto
-- Estructura base del repositorio definida
+### Added
+- `modules/vpc/`: módulo de red con VPC, subnets, Security Group, KMS, CloudWatch y Flow Logs
+- `modules/ec2/`: módulo de cómputo con EC2, IAM Role e Instance Profile
